@@ -53,6 +53,7 @@
 
 #define EC_SC 0x66
 #define EC_DATA 0x62
+#define PI 3.14159265358979323846
 
 #define IBF 1
 #define OBF 0
@@ -241,7 +242,7 @@ static int main_ec_worker(void) {
           }
         }
         //
-        usleep(200 * 1000);
+        usleep(10 * 1000);
     }
     printf("worker quit\n");
     return EXIT_SUCCESS;
@@ -281,41 +282,23 @@ static int ec_init(void) {
 
 static double ec_auto_duty_adjust(int maxTemp, int minTemp, int minDuty) {
     int temp = MAX(share_info->cpu_temp, share_info->gpu_temp);
-    int duty = share_info->fan_duty;
-    //
-    if (temp >= 80 && duty < 100)
-        return 100;
-    if (temp >= 70 && duty < 90)
-        return 90;
-    if (temp >= 60 && duty < 80)
-        return 80;
-    if (temp >= 50 && duty < 70)
-        return 70;
-    if (temp >= 40 && duty < 60)
-        return 60;
-    if (temp >= 30 && duty < 50)
-        return 50;
-    if (temp >= 20 && duty < 40)
-        return 40;
-    if (temp >= 10 && duty < 30)
-        return 30;
-    //
-    if (temp <= 15 && duty > 30)
-        return 30;
-    if (temp <= 25 && duty > 40)
-        return 40;
-    if (temp <= 35 && duty > 50)
-        return 50;
-    if (temp <= 45 && duty > 60)
-        return 60;
-    if (temp <= 55 && duty > 70)
-        return 70;
-    if (temp <= 65 && duty > 80)
-        return 80;
-    if (temp <= 75 && duty > 90)
-        return 90;
-    //
-    return 0;
+
+    if (temp > maxTemp) {
+      return 100;
+    }
+
+    int tempDiff = temp - minTemp;
+    if (tempDiff <= 0) {
+      return minDuty;
+    }
+
+    double base = (100 - minDuty) / 2;
+
+    double newDuty = (100-base) + cos((tempDiff/((maxTemp-minTemp)/PI)) +PI) * base;
+
+    printf("MinTemp: %d, minDuty: %d, diff %d, base: %f, calc: %f\n", minTemp, minDuty, tempDiff, base, newDuty);
+
+    return newDuty;
 }
 
 static int ec_query_cpu_temp(void) {
